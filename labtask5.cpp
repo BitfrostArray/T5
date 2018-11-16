@@ -151,7 +151,7 @@ int main (int argc, char* argv[]) {
 			cout << endl;
 
 			multicast (rank);
-         cout << "\033[3" << rank+1 << "m" << "[P" << rank << "] Finished multicasting" << endl;
+         // cout << "\033[3" << rank+1 << "m" << "[P" << rank << "] Finished multicasting" << endl;
 			goto join;
 		}
 
@@ -177,7 +177,7 @@ int main (int argc, char* argv[]) {
 	//wait for random amount of time before multicast message - to simulate the unpredictable network latency
 	usleep (rand()%10000);
 	multicast (rank);
-   cout << "\033[3" << rank+1 << "m" << "[P" << rank << "] Finished multicasting" << endl;
+   // cout << "\033[3" << rank+1 << "m" << "[P" << rank << "] Finished multicasting" << endl;
 
 
 join:		//P5 join here and won't receive the messages since P5 is not in the V yet
@@ -197,26 +197,32 @@ join:		//P5 join here and won't receive the messages since P5 is not in the V ye
 		}
 		else {
 			count++;
-			if (count > 25)
+			if (count > 15)
 				break;
 		}
 	} while (1);
-   cout << "\033[3" << rank+1 << "m" << "[P" << rank << "] Finished receiving" << endl;
+   // cout << "\033[3" << rank+1 << "m" << "[P" << rank << "] Finished receiving" << endl;
 
    //Update if rank is 0
 	if (V[rank] == 'T') {
 		if (nonBlockingRecv (reply, MPI_ANY_SOURCE, status, BUILD_TAG) && rank == 0) {
 			if (reply == VIEW_ACK) {
 				V[status.MPI_SOURCE] = 'T';
-				cout << "\033[3" << rank+1 << "m" << "[P" << status.MPI_SOURCE << "] Is added to GV LATE" << endl;
+				cout << "\033[3" << rank+1 << "m" << "[P" << status.MPI_SOURCE << "] Is added to GV LATE\n > Resending GV to all participating nodes." << endl;
 				for (int i=1; i<world_size; i++){
 					MPI_Send (&V, 6, MPI_CHAR, i, GV_TAG, MPI_COMM_WORLD);
-					cout << "\033[3" << rank+1 << "m" << "[P" << rank << "] Sent updated GV to " << i+1 << endl;
 				}
 			}
 		} else {
    		MPI_Recv (&V, 6, MPI_CHAR, 0, GV_TAG, MPI_COMM_WORLD, &status);
       }
+
+		for (size_t i = 0; i < world_size; i++) {
+			if (i != rank && V[i] == 'T') {
+				dest = i;
+				MPI_Isend(&data[rank], 1, MPI_INT, dest, MSG_TAG, MPI_COMM_WORLD, &req);
+			}
+		}
 	}
 
    // Everyone print the messages they receive
